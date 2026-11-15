@@ -1,0 +1,2262 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Русь: Явь и Навь — Дань мёртвым (прототип)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400&family=PT+Sans:wght@400;700&family=Marck+Script&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#12100e;font-family:'PT Sans',sans-serif;-webkit-font-smoothing:antialiased}
+canvas#scene{position:fixed;inset:0;display:block;width:100%;height:100%;cursor:grab}
+canvas#scene:active{cursor:grabbing}
+#ui{position:fixed;inset:0;pointer-events:none;z-index:10;user-select:none;overflow:hidden}
+
+/* ---------- HUD ---------- */
+#hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:16px 20px;align-items:flex-start}
+.hud-left{display:flex;flex-direction:column;gap:8px}
+.compass-window{position:relative;width:220px;height:26px;overflow:hidden;border:1px solid rgba(217,164,65,.5);border-radius:4px;background:rgba(20,16,12,.55)}
+.compass-strip{position:absolute;top:0;left:0;display:flex;height:100%;will-change:transform}
+.cdir{width:44px;flex:0 0 44px;text-align:center;line-height:26px;font-size:12px;letter-spacing:1px;color:#D9A441}
+.compass-caret{position:absolute;left:50%;bottom:0;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:6px solid #A63A2A;transform:translateX(-50%)}
+.loc-name{font-family:'PT Serif',serif;font-size:16px;color:#F2E4C9;text-shadow:0 2px 8px #000;letter-spacing:1px}
+.hud-right{display:flex;gap:8px}
+.hud-btn{pointer-events:auto;font-family:'PT Sans',sans-serif;font-size:13px;color:#F2E4C9;background:rgba(20,16,12,.62);border:1px solid rgba(217,164,65,.5);padding:8px 14px;border-radius:4px;cursor:pointer;transition:.15s;letter-spacing:.5px}
+.hud-btn:hover{background:#A63A2A;border-color:#D9A441}
+
+.quest-tracker{position:absolute;top:70px;right:20px;width:262px;background:rgba(20,16,12,.62);border-left:3px solid #D9A441;padding:10px 14px;border-radius:4px}
+.qt-title{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#D9A441;margin-bottom:4px}
+.qt-text{font-family:'PT Serif',serif;font-size:14px;color:#F2E4C9;line-height:1.35}
+
+.hint{position:absolute;left:50%;bottom:110px;transform:translateX(-50%) translateY(10px);opacity:0;transition:.18s;background:rgba(20,16,12,.82);border:1px solid rgba(217,164,65,.6);color:#F2E4C9;padding:8px 16px;border-radius:30px;font-size:14px;display:flex;gap:8px;align-items:center;white-space:nowrap}
+.hint.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.key{display:inline-block;background:#D9A441;color:#2B1B12;font-weight:700;border-radius:4px;padding:1px 8px;font-size:13px}
+
+.toasts{position:absolute;top:96px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;align-items:center;width:100%}
+.toast{background:rgba(20,16,12,.88);border:1px solid rgba(217,164,65,.6);color:#F2E4C9;font-size:14px;padding:8px 18px;border-radius:20px;animation:toastIn .3s ease, toastOut .5s ease 3.2s forwards;max-width:80vw;text-align:center}
+@keyframes toastIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes toastOut{to{opacity:0;transform:translateY(-10px)}}
+
+/* ---------- Dialogue ---------- */
+.dialogue{position:absolute;left:0;right:0;bottom:0;padding:0 16px 24px;display:flex;justify-content:center;transform:translateY(115%);transition:transform .32s cubic-bezier(.2,.8,.3,1);pointer-events:none}
+.dialogue.show{transform:translateY(0)}
+.dlg-inner{pointer-events:auto;width:min(940px,94vw);background:rgba(0,0,0,.86);border:1px solid rgba(217,164,65,.35);border-top:3px solid #A63A2A;border-radius:8px;padding:18px 26px 22px;box-shadow:0 -12px 50px rgba(0,0,0,.7)}
+.dlg-speaker{font-family:'PT Serif',serif;font-size:14px;letter-spacing:3px;text-transform:uppercase;color:#D9A441;margin-bottom:10px}
+.dlg-text{font-family:'PT Serif',serif;font-size:17px;line-height:1.55;color:#F2E4C9;min-height:56px;margin-bottom:16px}
+.dlg-options{display:flex;flex-direction:column;gap:8px}
+.dlg-btn{pointer-events:auto;text-align:left;font-family:'PT Serif',serif;font-size:15px;color:#F2E4C9;background:#A63A2A;border:1px solid #D9A441;border-radius:5px;padding:11px 16px;cursor:pointer;transition:.15s;line-height:1.35}
+.dlg-btn:hover{background:#c44834;transform:translateX(4px)}
+.dlg-btn:active{transform:translateX(4px) scale(.99)}
+.dlg-btn.timed{position:relative;overflow:hidden}
+.dlg-timer{position:absolute;left:0;bottom:0;height:3px;background:#D9A441;width:100%;transform-origin:left;transition:transform .1s linear}
+
+/* ---------- Overlays ---------- */
+.overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,rgba(22,17,12,.9),rgba(6,5,4,.98));opacity:0;visibility:hidden;transition:opacity .45s ease;padding:26px;pointer-events:none;text-align:center}
+.overlay.show{opacity:1;visibility:visible;pointer-events:auto}
+
+.title{font-family:'Marck Script',cursive;font-size:clamp(40px,7.5vw,86px);color:#D9A441;text-shadow:0 4px 30px rgba(166,58,42,.6),0 2px 0 #2B1B12;line-height:1.05;margin-bottom:6px}
+.subtitle{font-family:'PT Serif',serif;font-size:clamp(13px,1.6vw,17px);color:#C9C2D6;letter-spacing:4px;text-transform:uppercase;margin-bottom:34px}
+.ornament{color:#A63A2A;letter-spacing:12px;font-size:18px;margin-bottom:18px}
+
+.btn-primary{pointer-events:auto;font-family:'PT Serif',serif;font-size:18px;letter-spacing:1px;color:#F2E4C9;background:#A63A2A;border:1px solid #D9A441;border-radius:6px;padding:14px 46px;cursor:pointer;transition:.18s}
+.btn-primary:hover{background:#c44834;box-shadow:0 0 30px rgba(217,164,65,.4);transform:translateY(-2px)}
+
+.controls{font-size:13px;color:#8d8578;line-height:2;letter-spacing:.5px}
+.controls b{color:#D9A441;font-weight:700}
+
+.intro-card{width:min(720px,92vw);background:rgba(0,0,0,.5);border:1px solid rgba(217,164,65,.28);border-radius:10px;padding:36px 40px;margin-bottom:28px}
+.intro-text{font-family:'PT Serif',serif;font-size:clamp(16px,2vw,21px);line-height:1.65;color:#F2E4C9}
+.intro-num{font-size:11px;letter-spacing:4px;color:#A63A2A;margin-bottom:14px;text-transform:uppercase}
+
+.ending-card{width:min(760px,94vw);background:rgba(0,0,0,.6);border:1px solid rgba(217,164,65,.3);border-top:3px solid #A63A2A;border-radius:10px;padding:34px 40px;margin-bottom:26px}
+.ending-title{font-family:'PT Serif',serif;font-size:13px;letter-spacing:4px;text-transform:uppercase;color:#D9A441;margin-bottom:10px}
+.ending-sub{font-family:'Marck Script',cursive;font-size:30px;color:#F2E4C9;margin-bottom:18px;line-height:1.2}
+.ending-text{font-family:'PT Serif',serif;font-size:clamp(15px,1.9vw,19px);line-height:1.65;color:#F2E4C9}
+
+.usp{list-style:none;margin:26px 0 34px;display:flex;flex-direction:column;gap:14px;width:min(640px,92vw)}
+.usp li{font-family:'PT Serif',serif;font-size:clamp(14px,1.7vw,17px);color:#F2E4C9;line-height:1.45;padding-left:34px;position:relative;text-align:left}
+.usp li:before{content:attr(data-n);position:absolute;left:0;top:-2px;width:24px;height:24px;line-height:24px;text-align:center;background:#A63A2A;color:#F2E4C9;border-radius:50%;font-size:13px;font-family:'PT Sans',sans-serif}
+
+/* ---------- Combat ---------- */
+.combat-overlay{background:rgba(60,8,8,.28);backdrop-filter:blur(1px);cursor:crosshair}
+.combat-box{background:rgba(0,0,0,.88);border:2px solid #A63A2A;border-radius:10px;padding:30px 44px;text-align:center;box-shadow:0 0 60px rgba(166,58,42,.6)}
+.combat-title{font-family:'PT Serif',serif;font-size:26px;letter-spacing:10px;color:#A63A2A;margin-bottom:12px}
+.combat-text{font-family:'PT Serif',serif;font-size:16px;color:#F2E4C9;margin-bottom:20px}
+.combat-bar{width:320px;max-width:70vw;height:16px;background:rgba(255,255,255,.1);border:1px solid rgba(217,164,65,.5);border-radius:8px;overflow:hidden;margin:0 auto 14px}
+.combat-fill{height:100%;width:0%;background:linear-gradient(90deg,#A63A2A,#D9A441);transition:width .12s}
+.combat-timer{font-size:13px;letter-spacing:3px;color:#D9A441}
+
+/* ---------- Panels ---------- */
+.panel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(.96);width:min(440px,90vw);background:rgba(12,10,8,.95);border:1px solid rgba(217,164,65,.4);border-radius:8px;padding:22px 24px;opacity:0;visibility:hidden;transition:.22s;pointer-events:none}
+.panel.show{opacity:1;visibility:visible;transform:translate(-50%,-50%) scale(1);pointer-events:auto}
+.panel h3{font-family:'PT Serif',serif;font-size:15px;letter-spacing:3px;text-transform:uppercase;color:#D9A441;margin-bottom:14px;font-weight:400}
+.panel ul{list-style:none;display:flex;flex-direction:column;gap:9px}
+.panel li{font-family:'PT Serif',serif;font-size:15px;color:#F2E4C9;padding-left:18px;position:relative;line-height:1.4}
+.panel li:before{content:'◆';position:absolute;left:0;color:#A63A2A;font-size:10px;top:3px}
+.panel .empty{color:#6d6558;font-style:italic}
+.panel-close{position:absolute;top:10px;right:14px;background:none;border:none;color:#8d8578;font-size:22px;cursor:pointer;line-height:1}
+.panel-close:hover{color:#D9A441}
+
+/* ---------- Cinematic bar ---------- */
+.cinematic-bars{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .5s}
+.cinematic-bars.show{opacity:1}
+.cinematic-bars .top,.cinematic-bars .bottom{position:absolute;left:0;right:0;height:9vh;background:#000}
+.cinematic-bars .top{top:0}
+.cinematic-bars .bottom{bottom:0}
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<div id="ui">
+
+  <!-- ================= HUD ================= -->
+  <div id="hud">
+    <div class="hud-left">
+      <div class="compass-window">
+        <div class="compass-strip" id="compassStrip"></div>
+        <div class="compass-caret"></div>
+      </div>
+      <div class="loc-name" id="locName">Городище</div>
+    </div>
+    <div class="hud-right">
+      <button class="hud-btn" id="btnQuest">Журнал</button>
+      <button class="hud-btn" id="btnInv">Инвентарь</button>
+    </div>
+  </div>
+
+  <div class="quest-tracker">
+    <div class="qt-title">Текущее задание</div>
+    <div class="qt-text" id="questText">Поговорить со старейшиной Любомиром</div>
+  </div>
+
+  <div class="hint" id="hint"><span class="key">E</span><span id="hintText">Поговорить</span></div>
+  <div class="toasts" id="toasts"></div>
+
+  <!-- ================= Cinematic bars ================= -->
+  <div class="cinematic-bars" id="cineBars">
+    <div class="top"></div>
+    <div class="bottom"></div>
+  </div>
+
+  <!-- ================= Dialogue ================= -->
+  <div class="dialogue" id="dialogue">
+    <div class="dlg-inner">
+      <div class="dlg-speaker" id="dlgSpeaker"></div>
+      <div class="dlg-text" id="dlgText"></div>
+      <div class="dlg-options" id="dlgOptions"></div>
+    </div>
+  </div>
+
+  <!-- ================= Combat ================= -->
+  <div class="overlay combat-overlay" id="combat">
+    <div class="combat-box">
+      <div class="combat-title">БОЙ</div>
+      <div class="combat-text">Нажимайте ЛКМ, чтобы одолеть вора!</div>
+      <div class="combat-bar"><div class="combat-fill" id="combatFill"></div></div>
+      <div class="combat-timer" id="combatTimer">10.0</div>
+    </div>
+  </div>
+
+  <!-- ================= Menu ================= -->
+  <div class="overlay show" id="menu">
+    <div class="ornament">✦ ✦ ✦</div>
+    <h1 class="title">Русь: Явь и Навь</h1>
+    <div class="subtitle">Дань мёртвым — демо</div>
+    <button class="btn-primary" id="btnPlay">Играть</button>
+    <div style="height:34px"></div>
+    <div class="controls">
+      <b>WASD</b> — движение &nbsp;·&nbsp; <b>E</b> — взаимодействие &nbsp;·&nbsp; <b>Shift</b> — бег &nbsp;·&nbsp; <b>Space</b> — прыжок<br>
+      <b>Мышь (зажать + тянуть)</b> — поворот камеры &nbsp;·&nbsp; <b>Колесо</b> — приближение
+    </div>
+  </div>
+
+  <!-- ================= Intro ================= -->
+  <div class="overlay" id="intro">
+    <div class="intro-card">
+      <div class="intro-num" id="introNum">Свиток I</div>
+      <div class="intro-text" id="introText"></div>
+    </div>
+    <button class="btn-primary" id="introBtn">Далее</button>
+  </div>
+
+  <!-- ================= Ending ================= -->
+  <div class="overlay" id="ending">
+    <div class="ending-card">
+      <div class="ending-title" id="endingTitle">Исход</div>
+      <div class="ending-sub" id="endingSub"></div>
+      <div class="ending-text" id="endingText"></div>
+    </div>
+    <button class="btn-primary" id="endingBtn">Далее</button>
+  </div>
+
+  <!-- ================= Final ================= -->
+  <div class="overlay" id="final">
+    <div class="ornament">✦ ✦ ✦</div>
+    <h1 class="title">Русь: Явь и Навь</h1>
+    <div class="subtitle">Спасибо, что сыграли в демо!</div>
+    <ul class="usp">
+      <li data-n="1">Уникальный славянский сеттинг: противостояние веры, простого народа и нечисти.</li>
+      <li data-n="2">Система выборов: ложь и правда вершат судьбу деревни.</li>
+      <li data-n="3">Мораль без морализаторства: старейшина и жрица — не злодеи, каждый платит свою цену за свою правду.</li>
+    </ul>
+    <button class="btn-primary" id="btnRestart">Пройти заново</button>
+  </div>
+
+  <!-- ================= Panels ================= -->
+  <div class="panel" id="invPanel">
+    <button class="panel-close" id="invClose">×</button>
+    <h3>Инвентарь</h3>
+    <ul id="invList"><li class="empty">Пусто</li></ul>
+  </div>
+
+  <div class="panel" id="questPanel">
+    <button class="panel-close" id="questClose">×</button>
+    <h3>Журнал</h3>
+    <ul id="journalList"><li class="empty">Записей нет</li></ul>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+'use strict';
+
+/* =========================================================
+   DOM
+   ========================================================= */
+const $ = id => document.getElementById(id);
+const canvas       = $('scene');
+const elLocName    = $('locName');
+const elCompass    = $('compassStrip');
+const elQuestText  = $('questText');
+const elHint       = $('hint');
+const elHintText   = $('hintText');
+const elDialogue   = $('dialogue');
+const elDlgSpeaker = $('dlgSpeaker');
+const elDlgText    = $('dlgText');
+const elDlgOptions = $('dlgOptions');
+const elToasts     = $('toasts');
+const elCineBars   = $('cineBars');
+const elMenu       = $('menu');
+const elIntro      = $('intro');
+const elIntroText  = $('introText');
+const elIntroNum   = $('introNum');
+const elIntroBtn   = $('introBtn');
+const elEnding     = $('ending');
+const elEndingTitle= $('endingTitle');
+const elEndingSub  = $('endingSub');
+const elEndingText = $('endingText');
+const elEndingBtn  = $('endingBtn');
+const elFinal      = $('final');
+const elCombat     = $('combat');
+const elCombatFill = $('combatFill');
+const elCombatTimer= $('combatTimer');
+const elInvPanel   = $('invPanel');
+const elInvList    = $('invList');
+const elQuestPanel = $('questPanel');
+const elJournalList= $('journalList');
+
+/* =========================================================
+   UTIL
+   ========================================================= */
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp  = (a, b, t) => a + (b - a) * t;
+function smoothstep(a, b, x) { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
+function lerpAngle(a, b, t) {
+  let d = ((b - a + Math.PI) % (Math.PI * 2)) - Math.PI;
+  if (d < -Math.PI) d += Math.PI * 2;
+  return a + d * t;
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+/* =========================================================
+   AUDIO (полностью синтезированный)
+   ========================================================= */
+const Sound = (function () {
+  let ctx = null, master = null, windGain = null, windFilter = null, droneGain = null;
+  function makeNoise(sec) {
+    const len = Math.floor(ctx.sampleRate * sec);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    return buf;
+  }
+  function init() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+    master = ctx.createGain(); master.gain.value = 0.55; master.connect(ctx.destination);
+
+    const src = ctx.createBufferSource();
+    src.buffer = makeNoise(3); src.loop = true;
+    windFilter = ctx.createBiquadFilter();
+    windFilter.type = 'lowpass'; windFilter.frequency.value = 420; windFilter.Q.value = 0.7;
+    windGain = ctx.createGain(); windGain.gain.value = 0.055;
+    src.connect(windFilter); windFilter.connect(windGain); windGain.connect(master);
+    src.start();
+
+    droneGain = ctx.createGain(); droneGain.gain.value = 0.028;
+    [55, 82.5, 110].forEach((f, i) => {
+      const o = ctx.createOscillator();
+      o.type = 'sine'; o.frequency.value = f;
+      const g = ctx.createGain(); g.gain.value = 0.6 - i * 0.18;
+      o.connect(g); g.connect(droneGain); o.start();
+    });
+    droneGain.connect(master);
+  }
+  function tone(freq, dur, type, vol, slideTo) {
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    g.gain.setValueAtTime(vol || 0.12, t);
+    g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.03);
+  }
+  function noise(dur, freq, vol, q) {
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const s = ctx.createBufferSource(); s.buffer = makeNoise(0.6);
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q || 1.2;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(vol || 0.12, t);
+    g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+    s.connect(f); f.connect(g); g.connect(master);
+    s.start(t); s.stop(t + dur + 0.03);
+  }
+  function sfx(name) {
+    if (!ctx) return;
+    switch (name) {
+      case 'click':   noise(0.09, 260, 0.10, 1.6); tone(140, 0.09, 'sine', 0.09); break;
+      case 'select':  tone(520, 0.10, 'triangle', 0.10); setTimeout(() => tone(780, 0.14, 'triangle', 0.08), 70); break;
+      case 'open':    noise(0.35, 700, 0.05, 0.8); tone(220, 0.28, 'sine', 0.05); break;
+      case 'hit':     noise(0.14, 150, 0.22, 0.9); tone(70, 0.16, 'square', 0.10, 40); break;
+      case 'pickup':  tone(660, 0.09, 'triangle', 0.09); setTimeout(() => tone(990, 0.13, 'triangle', 0.07), 80); break;
+      case 'quest':   tone(392, 0.16, 'triangle', 0.09); setTimeout(() => tone(523, 0.16, 'triangle', 0.09), 140); setTimeout(() => tone(659, 0.26, 'triangle', 0.09), 280); break;
+      case 'step':    noise(0.06, 190 + Math.random() * 90, 0.045, 1.4); break;
+      case 'danger':  tone(110, 0.5, 'sawtooth', 0.06, 70); break;
+      case 'heartbeat': tone(55, 0.22, 'sine', 0.16, 40); break;
+    }
+  }
+  function setDark(t) {
+    if (!ctx) return;
+    windFilter.frequency.setTargetAtTime(lerp(420, 1000, t), ctx.currentTime, 0.4);
+    windGain.gain.setTargetAtTime(lerp(0.055, 0.10, t), ctx.currentTime, 0.4);
+    droneGain.gain.setTargetAtTime(lerp(0.028, 0.07, t), ctx.currentTime, 0.4);
+  }
+  return { init, sfx, setDark };
+})();
+
+/* =========================================================
+   THREE.JS — БАЗА
+   ========================================================= */
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+const SKY_DAY   = new THREE.Color(0xB9CBA0);
+const SKY_NIGHT = new THREE.Color(0x120F1A);
+scene.background = SKY_DAY.clone();
+scene.fog = new THREE.Fog(0xB9CBA0, 48, 165);
+
+const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 600);
+camera.position.set(0, 6, 24);
+
+const ambient = new THREE.AmbientLight(0xffffff, 0.55);
+scene.add(ambient);
+const hemi = new THREE.HemisphereLight(0xC8DCA8, 0x44502A, 0.40);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xFFF0CE, 0.95);
+sun.position.set(45, 70, 30);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -55; sun.shadow.camera.right = 55;
+sun.shadow.camera.top = 55; sun.shadow.camera.bottom = -55;
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 200;
+sun.shadow.bias = -0.0007;
+scene.add(sun); scene.add(sun.target);
+
+/* =========================================================
+   МАТЕРИАЛЫ
+   ========================================================= */
+const M = {
+  grass:   new THREE.MeshLambertMaterial({ color: 0x5E7A3A }),
+  grassDk: new THREE.MeshLambertMaterial({ color: 0x4E6830 }),
+  earth:   new THREE.MeshLambertMaterial({ color: 0xB8894F }),
+  darkGrnd:new THREE.MeshLambertMaterial({ color: 0x2E2A3A }),
+  wood:    new THREE.MeshLambertMaterial({ color: 0x8B5A2B }),
+  woodDk:  new THREE.MeshLambertMaterial({ color: 0x6B4520 }),
+  roof:    new THREE.MeshLambertMaterial({ color: 0xA63A2A }),
+  leaf:    new THREE.MeshLambertMaterial({ color: 0x3E5A24 }),
+  leaf2:   new THREE.MeshLambertMaterial({ color: 0x4C6B2C }),
+  leafHide:new THREE.MeshLambertMaterial({ color: 0x2F4A1C }),
+  stone:   new THREE.MeshLambertMaterial({ color: 0x8A8578 }),
+  stoneDk: new THREE.MeshLambertMaterial({ color: 0x5E5A52 }),
+  mound:   new THREE.MeshLambertMaterial({ color: 0x413C4E }),
+  dark:    new THREE.MeshLambertMaterial({ color: 0x2B1B12 }),
+  warm:    new THREE.MeshLambertMaterial({ color: 0xD9A441, emissive: 0x5a3a08 }),
+  gold:    new THREE.MeshLambertMaterial({ color: 0xD9A441, emissive: 0x3a2a04 }),
+  cloth:   new THREE.MeshLambertMaterial({ color: 0x6B4F8A }),
+  dead:    new THREE.MeshLambertMaterial({ color: 0x3A3040 }),
+  thief:   new THREE.MeshLambertMaterial({ color: 0x3a1414 }),
+  thiefHood:new THREE.MeshLambertMaterial({ color: 0x1a0606 }),
+  sack:    new THREE.MeshLambertMaterial({ color: 0x5a4028 })
+};
+
+/* =========================================================
+   МИР
+   ========================================================= */
+const colliders = [];
+const interactables = [];
+const worldGroup = new THREE.Group();
+scene.add(worldGroup);
+
+function addCollider(x, z, hw, hd) {
+  colliders.push({ minX: x - hw, maxX: x + hw, minZ: z - hd, maxZ: z + hd });
+}
+
+/* --- земля --- */
+(function buildGround() {
+  const g = new THREE.Mesh(new THREE.PlaneGeometry(320, 320), M.grass);
+  g.rotation.x = -Math.PI / 2; g.receiveShadow = true;
+  worldGroup.add(g);
+
+  const dark = new THREE.Mesh(new THREE.PlaneGeometry(180, 96), M.darkGrnd);
+  dark.rotation.x = -Math.PI / 2; dark.position.set(0, 0.02, -74); dark.receiveShadow = true;
+  worldGroup.add(dark);
+
+  const path = new THREE.Mesh(new THREE.PlaneGeometry(6.5, 84), M.earth);
+  path.rotation.x = -Math.PI / 2; path.position.set(-7, 0.03, -22); path.receiveShadow = true;
+  worldGroup.add(path);
+
+  const plaza = new THREE.Mesh(new THREE.CircleGeometry(17, 28), M.earth);
+  plaza.rotation.x = -Math.PI / 2; plaza.position.set(0, 0.025, 10); plaza.receiveShadow = true;
+  worldGroup.add(plaza);
+
+  for (let i = 0; i < 26; i++) {
+    const s = rnd(3, 9);
+    const patch = new THREE.Mesh(new THREE.CircleGeometry(s, 7), M.grassDk);
+    patch.rotation.x = -Math.PI / 2;
+    patch.position.set(rnd(-65, 65), 0.015, rnd(-30, 40));
+    worldGroup.add(patch);
+  }
+})();
+
+/* --- дом --- */
+function makeHouse(x, z, w, d, h, rot) {
+  rot = rot || 0;
+  const g = new THREE.Group();
+  g.position.set(x, 0, z); g.rotation.y = rot;
+  const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M.wood);
+  body.position.y = h / 2; body.castShadow = true; body.receiveShadow = true;
+  g.add(body);
+  const roofH = h * 0.85;
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.max(w, d) * 0.78, roofH, 4), M.roof);
+  roof.position.y = h + roofH / 2 - 0.15; roof.rotation.y = Math.PI / 4; roof.castShadow = true;
+  g.add(roof);
+  const door = new THREE.Mesh(new THREE.BoxGeometry(1.25, 2.1, 0.18), M.dark);
+  door.position.set(0, 1.05, d / 2 + 0.06);
+  g.add(door);
+  const win = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.8, 0.16), M.warm);
+  win.position.set(w * 0.28, h * 0.62, d / 2 + 0.06);
+  g.add(win);
+  for (let i = 1; i < 4; i++) {
+    const log = new THREE.Mesh(new THREE.BoxGeometry(w + 0.16, 0.14, d + 0.16), M.woodDk);
+    log.position.y = (h / 4) * i;
+    g.add(log);
+  }
+  worldGroup.add(g);
+  const c = Math.abs(Math.cos(rot)), s = Math.abs(Math.sin(rot));
+  addCollider(x, z, (c * w + s * d) / 2 + 0.25, (s * w + c * d) / 2 + 0.25);
+  return g;
+}
+
+/* --- дерево --- */
+function makeTree(x, z, s) {
+  s = s || 1;
+  const g = new THREE.Group();
+  g.position.set(x, 0, z); g.scale.setScalar(s);
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.38, 2.8, 6), M.woodDk);
+  trunk.position.y = 1.4; trunk.castShadow = true;
+  g.add(trunk);
+  const c1 = new THREE.Mesh(new THREE.ConeGeometry(1.55, 2.8, 7), M.leaf);
+  c1.position.y = 3.3; c1.castShadow = true;
+  g.add(c1);
+  const c2 = new THREE.Mesh(new THREE.ConeGeometry(1.15, 2.2, 7), M.leaf2);
+  c2.position.y = 4.6; c2.castShadow = true;
+  g.add(c2);
+  const c3 = new THREE.Mesh(new THREE.ConeGeometry(0.72, 1.5, 7), M.leaf);
+  c3.position.y = 5.7; c3.castShadow = true;
+  g.add(c3);
+  worldGroup.add(g);
+  addCollider(x, z, 0.55 * s, 0.55 * s);
+}
+
+/* --- мёртвое дерево --- */
+function makeDeadTree(x, z, s) {
+  s = s || 1;
+  const g = new THREE.Group();
+  g.position.set(x, 0, z); g.scale.setScalar(s);
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.30, 4.2, 5), M.dead);
+  trunk.position.y = 2.1; trunk.rotation.z = rnd(-0.12, 0.12); trunk.castShadow = true;
+  g.add(trunk);
+  for (let i = 0; i < 4; i++) {
+    const br = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.10, rnd(1.2, 2.2), 4), M.dead);
+    br.position.set(rnd(-0.5, 0.5), rnd(2.4, 3.9), rnd(-0.5, 0.5));
+    br.rotation.z = rnd(-1.0, 1.0); br.rotation.x = rnd(-1.0, 1.0);
+    br.castShadow = true;
+    g.add(br);
+  }
+  worldGroup.add(g);
+  addCollider(x, z, 0.4, 0.4);
+}
+
+/* --- камень --- */
+function makeRock(x, z, r) {
+  const geo = new THREE.DodecahedronGeometry(r, 0);
+  const m = new THREE.Mesh(geo, Math.random() > 0.5 ? M.stone : M.stoneDk);
+  m.position.set(x, r * 0.55, z);
+  m.rotation.set(rnd(0, 3), rnd(0, 3), rnd(0, 3));
+  m.castShadow = true; m.receiveShadow = true;
+  worldGroup.add(m);
+  addCollider(x, z, r * 0.8, r * 0.8);
+}
+
+/* --- костёр --- */
+let fireLight = null;
+function makeCampfire(x, z) {
+  const g = new THREE.Group();
+  g.position.set(x, 0, z);
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2;
+    const st = new THREE.Mesh(new THREE.DodecahedronGeometry(0.32, 0), M.stoneDk);
+    st.position.set(Math.cos(a) * 1.15, 0.18, Math.sin(a) * 1.15);
+    st.castShadow = true;
+    g.add(st);
+  }
+  for (let i = 0; i < 4; i++) {
+    const log = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.5, 5), M.woodDk);
+    log.position.y = 0.22; log.rotation.z = Math.PI / 2; log.rotation.y = (i / 4) * Math.PI;
+    g.add(log);
+  }
+  const flame = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.4, 6),
+    new THREE.MeshBasicMaterial({ color: 0xFF9A2E, transparent: true, opacity: 0.85 }));
+  flame.position.y = 0.85;
+  g.add(flame);
+  fireLight = new THREE.PointLight(0xFF8B33, 1.5, 22, 2);
+  fireLight.position.set(0, 1.6, 0);
+  g.add(fireLight);
+  worldGroup.add(g);
+  addCollider(x, z, 1.3, 1.3);
+  return g;
+}
+
+/* --- капище --- */
+function makeKapishche(x, z) {
+  const g = new THREE.Group();
+  g.position.set(x, 0, z);
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2, r = 6.2;
+    const st = new THREE.Mesh(new THREE.DodecahedronGeometry(rnd(0.7, 1.05), 0), M.stone);
+    st.position.set(Math.cos(a) * r, 0.6, Math.sin(a) * r);
+    st.rotation.set(rnd(0, 3), rnd(0, 3), rnd(0, 3));
+    st.castShadow = true; st.receiveShadow = true;
+    g.add(st);
+  }
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.4, 0.7, 8), M.stoneDk);
+  base.position.y = 0.35; base.castShadow = true;
+  g.add(base);
+  const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.75, 3.4, 7), M.woodDk);
+  pillar.position.y = 2.3; pillar.castShadow = true;
+  g.add(pillar);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(1.15, 1.15, 0.7), M.cloth);
+  head.position.y = 4.4; head.castShadow = true;
+  g.add(head);
+  const eye1 = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.1), M.gold);
+  eye1.position.set(-0.26, 4.55, 0.36);
+  const eye2 = eye1.clone(); eye2.position.x = 0.26;
+  g.add(eye1, eye2);
+  for (let i = 0; i < 5; i++) {
+    const a = rnd(0, Math.PI * 2), r = rnd(2.4, 4.4);
+    const off = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.22, 0.3), M.gold);
+    off.position.set(Math.cos(a) * r, 0.12, Math.sin(a) * r);
+    off.rotation.y = rnd(0, 3);
+    off.castShadow = true;
+    g.add(off);
+  }
+  worldGroup.add(g);
+  addCollider(x, z, 1.6, 1.6);
+}
+
+/* --- курган --- */
+let kurganOfferings = [];
+function makeKurgan(x, z, r, h, withOfferings) {
+  const mound = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 9), M.mound);
+  mound.scale.y = h / r;
+  mound.position.set(x, 0, z);
+  mound.castShadow = true; mound.receiveShadow = true;
+  worldGroup.add(mound);
+
+  if (withOfferings) {
+    for (let i = 0; i < 6; i++) {
+      const a = rnd(0, Math.PI * 2), rr = rnd(0, 1.2);
+      const o = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.2, 0.28), M.gold);
+      o.position.set(x + Math.cos(a) * rr, h + 0.12, z + Math.sin(a) * rr);
+      o.rotation.y = rnd(0, 3);
+      o.castShadow = true;
+      worldGroup.add(o);
+      kurganOfferings.push(o);
+    }
+    const altar = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.4, 1.2), M.stoneDk);
+    altar.position.set(x, h + 0.2, z);
+    altar.castShadow = true; altar.receiveShadow = true;
+    worldGroup.add(altar);
+  }
+  addCollider(x, z, r * 0.62, r * 0.62);
+}
+
+/* =========================================================
+   ПОСТРОЙКА СЦЕНЫ
+   ========================================================= */
+makeHouse(9, 2, 9, 8, 4.2, 0);
+makeHouse(-15, 3, 7.5, 6.5, 3.8, 0.15);
+makeHouse(20, -7, 6.5, 6, 3.5, -0.2);
+makeHouse(-22, 19, 7.5, 7, 4.0, 0.35);
+makeHouse(13, 23, 6.5, 5.5, 3.6, -0.1);
+makeHouse(-4, 30, 8, 6.5, 4.0, 0.05);
+makeCampfire(6, 13);
+makeKapishche(-22, -12);
+
+const treeSpots = [
+  [-34, 8], [-33, 22], [-30, -6], [-38, -18], [28, 12], [30, -2], [26, 30],
+  [34, 22], [-12, 36], [4, 38], [22, 36], [-28, 32], [15, -20], [24, -22],
+  [-32, 6], [36, 4], [-40, 14], [40, 20], [-16, -24], [8, -22],
+  [-45, -30], [45, -28], [-50, 0], [50, 6], [-46, 34], [46, 34],
+  [-30, -34], [30, -34], [0, -34]
+];
+treeSpots.forEach(p => makeTree(p[0], p[1], rnd(0.85, 1.25)));
+for (let i = 0; i < 16; i++) {
+  const z = 5 - i * 4.5;
+  const side = i % 2 === 0 ? -1 : 1;
+  makeTree(-7 + side * rnd(9, 16), z + rnd(-1.5, 1.5), rnd(0.8, 1.15));
+}
+
+makeRock(-12, 16, 1.1);
+makeRock(14, 6, 0.9);
+makeRock(-26, 22, 1.3);
+makeRock(18, 18, 0.85);
+makeRock(-9, -18, 1.0);
+
+// ---- КУРГАНЫ ----
+const KURGAN_POS = new THREE.Vector3(-20, 0, -62);
+makeKurgan(-20, -62, 5.2, 2.3, true);
+makeKurgan(-34, -72, 3.6, 1.5, false);
+makeKurgan(-6, -74, 4.2, 1.8, false);
+makeKurgan(12, -66, 3.2, 1.4, false);
+makeKurgan(28, -80, 4.6, 2.0, false);
+
+makeDeadTree(-30, -55, 1.1);
+makeDeadTree(-12, -70, 0.95);
+makeDeadTree(-40, -64, 1.2);
+makeDeadTree(4, -58, 0.9);
+makeDeadTree(20, -74, 1.05);
+makeDeadTree(-2, -84, 1.0);
+
+for (let i = 0; i < 14; i++) {
+  makeRock(rnd(-45, 40), rnd(-88, -40), rnd(0.5, 1.3));
+}
+
+/* =========================================================
+   ТОЧКА НАБЛЮДЕНИЯ (спец. дерево для укрытия)
+   ========================================================= */
+const HIDING_TREE_POS = new THREE.Vector3(-30, 0, -57);
+const HIDING_PLAYER_POS = new THREE.Vector3(-30, 0, -58.6);
+
+let hidingTreeGlow = null;
+let hidingMarker = null;
+
+(function buildHidingTree() {
+  const g = new THREE.Group();
+  g.position.copy(HIDING_TREE_POS);
+
+  // более крупное и тёмное дерево — чтобы отличалось
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.55, 3.2, 7), M.woodDk);
+  trunk.position.y = 1.6; trunk.castShadow = true;
+  g.add(trunk);
+
+  const c1 = new THREE.Mesh(new THREE.ConeGeometry(1.9, 3.4, 8), M.leafHide);
+  c1.position.y = 3.9; c1.castShadow = true;
+  g.add(c1);
+  const c2 = new THREE.Mesh(new THREE.ConeGeometry(1.45, 2.6, 8), M.leafHide);
+  c2.position.y = 5.4; c2.castShadow = true;
+  g.add(c2);
+  const c3 = new THREE.Mesh(new THREE.ConeGeometry(0.9, 1.8, 8), M.leafHide);
+  c3.position.y = 6.7; c3.castShadow = true;
+  g.add(c3);
+
+  worldGroup.add(g);
+  addCollider(HIDING_TREE_POS.x, HIDING_TREE_POS.z, 0.75, 0.75);
+
+  // светящееся кольцо на земле
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(1.6, 2.15, 28),
+    new THREE.MeshBasicMaterial({
+      color: 0xD9A441, transparent: true, opacity: 0.55,
+      side: THREE.DoubleSide, depthWrite: false
+    })
+  );
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.set(HIDING_TREE_POS.x, 0.06, HIDING_TREE_POS.z);
+  scene.add(ring);
+  hidingTreeGlow = ring;
+
+  // парящий маркер-«глаз»
+  const mk = new THREE.Group();
+  const orb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.28, 10, 8),
+    new THREE.MeshBasicMaterial({ color: 0xD9A441 })
+  );
+  mk.add(orb);
+  const halo = new THREE.Mesh(
+    new THREE.TorusGeometry(0.5, 0.05, 6, 22),
+    new THREE.MeshBasicMaterial({ color: 0xD9A441, transparent: true, opacity: 0.85 })
+  );
+  halo.rotation.x = Math.PI / 2;
+  mk.add(halo);
+  mk.position.set(HIDING_TREE_POS.x, 7.6, HIDING_TREE_POS.z);
+  scene.add(mk);
+  hidingMarker = mk;
+  hidingMarker.visible = false;
+  hidingTreeGlow.visible = false;
+})();
+
+/* =========================================================
+   ПЕРСОНАЖИ
+   ========================================================= */
+function createFigure(color, hatColor) {
+  const group = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color });
+  const skin = new THREE.MeshLambertMaterial({ color: 0xE3C39B });
+  const dark = new THREE.MeshLambertMaterial({ color: 0x2B1B12 });
+  const hatMat = new THREE.MeshLambertMaterial({ color: hatColor });
+
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.82, 1.0, 0.5), mat);
+  torso.position.y = 1.1; torso.castShadow = true;
+  group.add(torso);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), skin);
+  head.position.y = 1.85; head.castShadow = true;
+  group.add(head);
+
+  const hat = new THREE.Mesh(new THREE.ConeGeometry(0.37, 0.55, 8), hatMat);
+  hat.position.y = 2.16; hat.castShadow = true;
+  group.add(hat);
+
+  const legGeo = new THREE.BoxGeometry(0.24, 0.62, 0.24);
+  legGeo.translate(0, -0.31, 0);
+  const legL = new THREE.Mesh(legGeo, dark); legL.position.set(-0.20, 0.62, 0); legL.castShadow = true;
+  const legR = new THREE.Mesh(legGeo, dark); legR.position.set(0.20, 0.62, 0); legR.castShadow = true;
+  group.add(legL, legR);
+
+  const armGeo = new THREE.BoxGeometry(0.19, 0.75, 0.19);
+  armGeo.translate(0, -0.375, 0);
+  const armL = new THREE.Mesh(armGeo, mat); armL.position.set(-0.52, 1.55, 0); armL.castShadow = true;
+  const armR = new THREE.Mesh(armGeo, mat); armR.position.set(0.52, 1.55, 0); armR.castShadow = true;
+  group.add(armL, armR);
+
+  group.scale.setScalar(0.92);
+  return { group, legL, legR, armL, armR };
+}
+
+/* --- игрок --- */
+const player = {
+  fig: null,
+  pos: new THREE.Vector3(0, 0, 16),
+  yaw: Math.PI,
+  vy: 0,
+  speed: 6.2,
+  runSpeed: 9.4,
+  radius: 0.55,
+  walkPhase: 0,
+  stepTimer: 0,
+  frozen: false
+};
+(function createPlayer() {
+  player.fig = createFigure(0x3A6EA5, 0x2B1B12);
+  player.fig.group.position.copy(player.pos);
+  player.fig.group.rotation.y = player.yaw;
+  scene.add(player.fig.group);
+})();
+
+/* --- NPC --- */
+function createNPC(x, z, color, hatColor, faceYaw) {
+  const fig = createFigure(color, hatColor);
+  fig.group.position.set(x, 0, z);
+  fig.group.rotation.y = faceYaw || 0;
+  scene.add(fig.group);
+
+  const marker = new THREE.Group();
+  const cone = new THREE.Mesh(
+    new THREE.ConeGeometry(0.26, 0.62, 4),
+    new THREE.MeshBasicMaterial({ color: 0xD9A441 })
+  );
+  cone.rotation.x = Math.PI; cone.position.y = 0.42;
+  marker.add(cone);
+  const dot = new THREE.Mesh(
+    new THREE.SphereGeometry(0.11, 8, 6),
+    new THREE.MeshBasicMaterial({ color: 0xD9A441 })
+  );
+  dot.position.y = 0.85;
+  marker.add(dot);
+  marker.position.set(x, 2.85, z);
+  marker.visible = false;
+  scene.add(marker);
+
+  addCollider(x, z, 0.42, 0.42);
+  return { fig, marker, x, z };
+}
+
+const lyubomir = createNPC(0, 7, 0xD9A441, 0x6B4520, 0);
+const veda     = createNPC(-20, -6, 0x6B4F8A, 0x2B1B12, 0.4);
+
+/* =========================================================
+   ВОР (отдельная, более детальная модель)
+   ========================================================= */
+const THIEF_START = new THREE.Vector3(-20, 0, -88);
+const THIEF_KURGAN = new THREE.Vector3(-20, 0, -62);
+const THIEF_END   = new THREE.Vector3(-20, 0, -94);
+
+const thief = (function buildThief() {
+  const g = new THREE.Group();
+  g.position.copy(THIEF_START);
+
+  // Тело в тёмном плаще
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.78, 1.05, 0.55), M.thief);
+  body.position.y = 1.15; body.castShadow = true;
+  g.add(body);
+
+  // Плащ-накидка сзади
+  const cape = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.2, 0.1), M.thiefHood);
+  cape.position.set(0, 1.2, 0.3); cape.castShadow = true;
+  g.add(cape);
+
+  // Голова в капюшоне
+  const hood = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.7, 7), M.thiefHood);
+  hood.position.y = 2.0; hood.castShadow = true;
+  g.add(hood);
+
+  // Тёмное лицо (не видно лица — только силуэт)
+  const face = new THREE.Mesh(
+    new THREE.SphereGeometry(0.24, 8, 6),
+    new THREE.MeshBasicMaterial({ color: 0x0a0404 })
+  );
+  face.position.set(0, 1.82, -0.06);
+  g.add(face);
+
+  // Мешок за спиной (виден сразу — он пришёл за данью)
+  const sack = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 6), M.sack);
+  sack.position.set(0, 1.35, 0.55);
+  sack.scale.set(1, 0.95, 0.75);
+  sack.castShadow = true;
+  g.add(sack);
+  g.userData.sack = sack;
+
+  // Ноги
+  const legGeo = new THREE.BoxGeometry(0.24, 0.62, 0.24);
+  legGeo.translate(0, -0.31, 0);
+  const legL = new THREE.Mesh(legGeo, M.thiefHood); legL.position.set(-0.20, 0.62, 0); legL.castShadow = true;
+  const legR = new THREE.Mesh(legGeo, M.thiefHood); legR.position.set(0.20, 0.62, 0); legR.castShadow = true;
+  g.add(legL, legR);
+
+  // Руки
+  const armGeo = new THREE.BoxGeometry(0.17, 0.72, 0.17);
+  armGeo.translate(0, -0.36, 0);
+  const armL = new THREE.Mesh(armGeo, M.thief); armL.position.set(-0.5, 1.55, 0); armL.castShadow = true;
+  const armR = new THREE.Mesh(armGeo, M.thief); armR.position.set(0.5, 1.55, 0); armR.castShadow = true;
+  g.add(armL, armR);
+
+  g.visible = false;
+  scene.add(g);
+
+  // Отдельный маркер «!» над вором, когда он появился
+  const marker = new THREE.Group();
+  const cone = new THREE.Mesh(
+    new THREE.ConeGeometry(0.26, 0.62, 4),
+    new THREE.MeshBasicMaterial({ color: 0xA63A2A })
+  );
+  cone.rotation.x = Math.PI; cone.position.y = 0.42;
+  marker.add(cone);
+  marker.position.set(THIEF_START.x, 2.85, THIEF_START.z);
+  marker.visible = false;
+  scene.add(marker);
+
+  return {
+    fig: { group: g, legL, legR, armL, armR },
+    marker,
+    pos: THIEF_START.clone(),
+    walkPhase: 0
+  };
+})();
+
+/* маркер-указатель квеста */
+const questBeacon = new THREE.Group();
+(function () {
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(0.75, 0.075, 6, 20),
+    new THREE.MeshBasicMaterial({ color: 0xD9A441, transparent: true, opacity: 0.85 })
+  );
+  ring.rotation.x = Math.PI / 2;
+  questBeacon.add(ring);
+  const oct = new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.32, 0),
+    new THREE.MeshBasicMaterial({ color: 0xD9A441 })
+  );
+  oct.position.y = 0.6;
+  questBeacon.add(oct);
+  questBeacon.position.y = 3.0;
+  questBeacon.visible = false;
+  scene.add(questBeacon);
+})();
+
+/* =========================================================
+   ЧАСТИЦЫ
+   ========================================================= */
+let motes = null;
+(function buildMotes() {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 64;
+  const g2 = cv.getContext('2d');
+  const grd = g2.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grd.addColorStop(0, 'rgba(255,244,200,1)');
+  grd.addColorStop(0.35, 'rgba(255,214,140,0.65)');
+  grd.addColorStop(1, 'rgba(255,214,140,0)');
+  g2.fillStyle = grd; g2.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(cv);
+
+  const COUNT = 420;
+  const positions = new Float32Array(COUNT * 3);
+  for (let i = 0; i < COUNT; i++) {
+    positions[i * 3]     = rnd(-70, 70);
+    positions[i * 3 + 1] = rnd(0.4, 7);
+    positions[i * 3 + 2] = rnd(-95, 45);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const mat = new THREE.PointsMaterial({
+    size: 0.36, map: tex, transparent: true, opacity: 0.85,
+    depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true
+  });
+  motes = new THREE.Points(geo, mat);
+  scene.add(motes);
+})();
+
+/* =========================================================
+   ИГРОВОЕ СОСТОЯНИЕ
+   ========================================================= */
+let gameState = 'menu'; // menu | intro | play | dialogue | combat | ending | final
+const keys = {};
+let camYaw = 0;
+let camPitch = 0.34;
+let camDist = 9.0;
+const camLookTarget = new THREE.Vector3(0, 1.8, 16);
+
+const quest = { stage: 0 };
+// 0 — поговорить с Любомиром
+// 1 — найти Веду / поговорить с ней
+// 2 — идти к курганам
+// 3 — разобраться с вором (сцена на курганах)
+// 4 — история завершена
+let vedaConvinced = false; // ветка "уговорили подождать"
+let thiefResolved = false;
+
+const inventory = [];
+const journal = [];
+
+/* =========================================================
+   UI: ТОСТЫ / ЖУРНАЛ / ИНВЕНТАРЬ
+   ========================================================= */
+function toast(text, dur) {
+  const d = document.createElement('div');
+  d.className = 'toast';
+  d.textContent = text;
+  elToasts.appendChild(d);
+  setTimeout(() => d.remove(), dur || 3600);
+}
+function renderInventory() {
+  elInvList.innerHTML = '';
+  if (!inventory.length) { elInvList.innerHTML = '<li class="empty">Пусто</li>'; return; }
+  inventory.forEach(it => {
+    const li = document.createElement('li');
+    li.textContent = it;
+    elInvList.appendChild(li);
+  });
+}
+function renderJournal() {
+  elJournalList.innerHTML = '';
+  if (!journal.length) { elJournalList.innerHTML = '<li class="empty">Записей нет</li>'; return; }
+  journal.forEach(it => {
+    const li = document.createElement('li');
+    li.textContent = it;
+    elJournalList.appendChild(li);
+  });
+}
+function addItem(name) {
+  if (inventory.indexOf(name) !== -1) return;
+  inventory.push(name);
+  renderInventory();
+  toast('Получено: ' + name);
+  Sound.sfx('pickup');
+}
+function addJournal(text) {
+  journal.push(text);
+  renderJournal();
+}
+
+/* =========================================================
+   ДИАЛОГОВАЯ СИСТЕМА
+   ========================================================= */
+let typeTimer = null;
+let timedChoiceHandle = null;
+
+function typeText(el, text, speed) {
+  if (typeTimer) clearInterval(typeTimer);
+  el.textContent = '';
+  let i = 0;
+  typeTimer = setInterval(() => {
+    i++;
+    el.textContent = text.slice(0, i);
+    if (i >= text.length) { clearInterval(typeTimer); typeTimer = null; }
+  }, speed || 14);
+}
+
+function stopTimedChoice() {
+  if (timedChoiceHandle) {
+    cancelAnimationFrame(timedChoiceHandle.raf);
+    clearTimeout(timedChoiceHandle.timeout);
+    timedChoiceHandle = null;
+  }
+}
+
+function showLine(speaker, text, options) {
+  gameState = 'dialogue';
+  stopTimedChoice();
+  elDlgSpeaker.textContent = speaker;
+  typeText(elDlgText, text);
+  elDlgOptions.innerHTML = '';
+  const opts = options && options.length ? options : [{ label: 'Продолжить', action: closeDialogue }];
+  opts.forEach(opt => {
+    const b = document.createElement('button');
+    b.className = 'dlg-btn';
+    b.textContent = opt.label;
+    b.addEventListener('click', () => {
+      Sound.sfx('select');
+      if (typeTimer) { clearInterval(typeTimer); typeTimer = null; elDlgText.textContent = text; }
+      stopTimedChoice();
+      opt.action();
+    });
+    elDlgOptions.appendChild(b);
+  });
+  elDialogue.classList.add('show');
+  elHint.classList.remove('show');
+  Sound.sfx('open');
+}
+
+/* Таймерный выбор — если игрок не успел, срабатывает defaultAction */
+function showTimedChoice(speaker, text, options, seconds, defaultAction) {
+  showLine(speaker, text, options);
+  stopTimedChoice();
+
+  const totalMs = seconds * 1000;
+  const start = performance.now();
+  // добавляем полоску таймера к каждой кнопке
+  const btns = elDlgOptions.querySelectorAll('.dlg-btn');
+  btns.forEach(b => {
+    const bar = document.createElement('div');
+    bar.className = 'dlg-timer';
+    b.appendChild(bar);
+    b.classList.add('timed');
+  });
+
+  const handle = { raf: 0, timeout: 0 };
+  timedChoiceHandle = handle;
+
+  function tick(now) {
+    if (timedChoiceHandle !== handle) return;
+    const t = clamp((now - start) / totalMs, 0, 1);
+    elDlgOptions.querySelectorAll('.dlg-timer').forEach(bar => {
+      bar.style.transform = 'scaleX(' + (1 - t) + ')';
+    });
+    if (t >= 1) return;
+    handle.raf = requestAnimationFrame(tick);
+  }
+  handle.raf = requestAnimationFrame(tick);
+
+  handle.timeout = setTimeout(() => {
+    if (timedChoiceHandle !== handle) return;
+    timedChoiceHandle = null;
+    defaultAction();
+  }, totalMs);
+}
+
+function closeDialogue() {
+  stopTimedChoice();
+  elDialogue.classList.remove('show');
+  if (typeTimer) { clearInterval(typeTimer); typeTimer = null; }
+  if (gameState === 'dialogue') gameState = 'play';
+}
+
+/* =========================================================
+   ДИАЛОГ 1 — ЛЮБОМИР (дословно из документа)
+   ========================================================= */
+function talkLyubomir() {
+  if (quest.stage === 0) {
+    showLine('Любомир',
+      'Эй, Ярослав, поди-ка сюда. Слушай, беда какая: люди пропадают, скот дохнет, духи в избах шалят. Жрица говорит — дань не доходит до мёртвых, хочет к наместнику идти. А я знаю, что будет, если она пойдёт: хазары придут с огнём, и всё, что мы тут построили, сгорит. Я не хочу войны, понимаешь? Мне мир нужен, а не разорение.',
+      [
+        {
+          label: 'А если она права? Если нежить и правда приходит из-за того, что дань духов забирают?',
+          action: () => showLine('Любомир',
+            'Всё равно, мы проиграем. Только быстрее. Понимаешь? Нельзя нам бороться с этим хазаром. А если начнём — не будет ни нас, ни деревни. Я прошу тебя: уговори её не лезть. Пусть молится. Пусть ждёт. А я уж как-нибудь договорюсь с наместником.',
+            [
+              {
+                label: 'А если не договоришься?',
+                action: () => showLine('Любомир',
+                  'Тогда, может, обойдётся. Может — нет. Но войны не будет. Это главное. Всё остальное — переживём.',
+                  [{
+                    label: 'Я тебя прошу: уговори жрицу не лезть. А если не выйдет — хотя бы узнай, что она задумала.',
+                    action: lyubomirRequest
+                  }])
+              },
+              { label: 'Я поговорю с ней. Узнаю, что она задумала.', action: lyubomirRequest }
+            ])
+        },
+        {
+          label: 'Я поговорю с ней. Узнаю, что она задумала.',
+          action: lyubomirRequest
+        }
+      ]);
+  } else if (quest.stage === 1) {
+    // Игрок вернулся от Веды
+    if (vedaConvinced) {
+      showLine('Любомир',
+        'Вернулся? Что она сказала? Согласилась ждать?',
+        [{
+          label: 'Да. Она согласилась подождать. Я её убедил.',
+          action: () => {
+            closeDialogue();
+            triggerPeaceEndingConvinced();
+          }
+        }]);
+    } else {
+      showLine('Любомир',
+        'Вернулся? Что она сказала? Согласилась ждать?',
+        [
+          {
+            label: 'Она согласилась подождать. Я её убедил.',
+            action: () => {
+              closeDialogue();
+              triggerLieEnding();
+            }
+          },
+          {
+            label: 'Я не смог её убедить, теперь она хочет идти к наместнику.',
+            action: () => showLine('Любомир',
+              'Вот ведь беда на мою седую голову... Ладно, иди, посмотри, что там на этом кургане происходит. Авось, и правда шальной дух — избавишься от него, решишь и нашу проблему. Ступай, а я пока сам к Веде схожу, поговорю ещё.',
+              [{
+                label: 'Хорошо, старейшина. Иду.',
+                action: () => {
+                  closeDialogue();
+                  startKurganQuest();
+                }
+              }])
+          }
+        ]);
+    }
+  } else if (quest.stage === 2) {
+    showLine('Любомир',
+      'Иди, Ярослав. И будь осторожен. Там, на курганах, по ночам нечисто.',
+      [{ label: 'Хорошо.', action: closeDialogue }]);
+  } else {
+    showLine('Любомир',
+      'Вот и всё, Ярослав. Что сделано — то сделано. Теперь только богам решать.',
+      [{ label: 'Прощай, старейшина.', action: closeDialogue }]);
+  }
+}
+
+function lyubomirRequest() {
+  showLine('Любомир',
+    'Я тебя прошу: уговори жрицу не лезть. А если не выйдет — хотя бы узнай, что она задумала. Я должен знать, чего ждать.',
+    [{
+      label: 'Сделаю, что смогу.',
+      action: () => {
+        closeDialogue();
+        quest.stage = 1;
+        updateQuestUI();
+        addJournal('Любомир просит уговорить жрицу Веду не ходить к наместнику, но выведать её планы.');
+        toast('Новое задание: найти Веду у капища');
+        Sound.sfx('quest');
+      }
+    }]);
+}
+
+/* =========================================================
+   ДИАЛОГ 2 — ВЕДА (дословно из документа)
+   ========================================================= */
+function talkVeda() {
+  if (quest.stage === 0) {
+    showLine('Веда',
+      'Ты пришёл к Моране или к нам? Впрочем, неважно. Сначала поговори со старейшиной — он знает больше, чем говорит.',
+      [{ label: 'Хорошо.', action: closeDialogue }]);
+    return;
+  }
+  if (quest.stage >= 2) {
+    showLine('Веда',
+      'Ступай на курганы. Ночью. И не выдай себя — иначе всё, что мы делаем, потеряет смысл.',
+      [{ label: 'Иду.', action: closeDialogue }]);
+    return;
+  }
+
+  // stage 1 — основной диалог
+  showLine('Веда',
+    'Ты пришёл к Моране или к нам? Впрочем, неважно. Старейшина уже сказал тебе, что я хочу идти к наместнику? Он боится войны. Я тоже боюсь. Но я боюсь другого: того, что будет, если мы и дальше будем молчать. Мы носим подношения на курганы каждую седмицу. А их кто-то забирает. И это не Морана, и не нечисть. Это люди. Я знаю, что это люди с хазарского стана. Но мне нужны доказательства. Иначе старейшина скажет, что я выдумываю, а наместник посмеётся мне в лицо.',
+    [
+      {
+        label: 'Что ты хочешь от меня?',
+        action: () => showLine('Веда',
+          'Пойди на курганы, что в лесу. Ночью. Спрячься и посмотри, кто приходит за подношениями. Мне не нужна война. Мне нужна правда. Если старейшина увидит, что я права, он, может, и сам решится что-то сделать. А если нет — я пойду сама. Но мне нужен свидетель. Кто-то, кому поверят. Ты можешь им стать.',
+          [
+            {
+              label: 'А если это приведёт к войне?',
+              action: () => showLine('Веда',
+                'Тогда война будет. Но мы будем знать, за что умираем. А это уже немало.',
+                [
+                  { label: 'Хорошо, проверю я твои курганы.', action: acceptKurganQuestFromVeda },
+                  { label: 'Думаешь, поход на курганы что-то даст? Дай старейшине время, он договорится.', action: vedaAlternative1 }
+                ])
+            },
+            { label: 'Хорошо, проверю я твои курганы.', action: acceptKurganQuestFromVeda },
+            { label: 'Думаешь, поход на курганы что-то даст? Дай старейшине время, он договорится.', action: vedaAlternative1 }
+          ])
+      },
+      {
+        label: 'Думаешь, поход на курганы что-то даст? Дай старейшине время, он договорится.',
+        action: vedaAlternative1
+      }
+    ]);
+}
+
+function vedaAlternative1() {
+  showLine('Веда', 'С хазарами? Ты наивен.',
+    [
+      {
+        label: 'Он боится войны, но он не глуп. Если ты дашь ему время, он найдёт способ. А если пойдёшь сама — всё сгорит. Ты этого хочешь?',
+        action: () => showLine('Веда',
+          'Не хочу, но и молчать не могу. Ладно. Я подожду. Но недолго. Если через седмицу ничего не изменится — я пойду сама.',
+          [{
+            label: 'Хорошо. Я передам старейшине.',
+            action: () => {
+              closeDialogue();
+              vedaConvinced = true;
+              quest.stage = 1;
+              updateQuestUI();
+              addJournal('Веда согласилась подождать. Нужно сообщить Любомиру.');
+              toast('Вернитесь к старейшине Любомиру');
+              Sound.sfx('quest');
+            }
+          }])
+      },
+      {
+        label: 'Подумай о людях. Если ты начнёшь войну, они пострадают. Ты этого хочешь?',
+        action: () => showLine('Веда',
+          'Я думаю о людях. Я молюсь за них каждую ночь. И вижу, как они гибнут от нечисти, пока старейшина прячется. А теперь — прочь, сама обо всём позабочусь.',
+          [{
+            label: 'Хорошо. Я передам старейшине.',
+            action: () => {
+              closeDialogue();
+              vedaConvinced = false;
+              quest.stage = 1;
+              updateQuestUI();
+              addJournal('Веда не согласилась ждать. Нужно сообщить Любомиру.');
+              toast('Вернитесь к старейшине Любомиру');
+              Sound.sfx('quest');
+            }
+          }])
+      }
+    ]);
+}
+
+function acceptKurganQuestFromVeda() {
+  closeDialogue();
+  startKurganQuest();
+}
+
+function startKurganQuest() {
+  quest.stage = 2;
+  updateQuestUI();
+  addJournal('Квест «Тени курганов»: ночью сходить на курганы и увидеть, кто забирает подношения.');
+  toast('Новое задание: идти к курганам на севере');
+  toast('Тьма сгущается за рощей...');
+  Sound.sfx('quest');
+  Sound.sfx('danger');
+}
+
+/* =========================================================
+   КВЕСТ / МАРКЕРЫ
+   ========================================================= */
+function updateQuestUI() {
+  let txt = '';
+  if (quest.stage === 0) txt = 'Поговорить со старейшиной Любомиром';
+  else if (quest.stage === 1) txt = 'Найти жрицу Веду у капища';
+  else if (quest.stage === 2) txt = 'Идти к курганам в лесу (на север)';
+  else if (quest.stage === 3) txt = 'Спрятаться и наблюдать за курганом';
+  else txt = 'История завершена';
+  elQuestText.textContent = txt;
+
+  lyubomir.marker.visible = (quest.stage === 0 || (quest.stage === 1 && vedaConvinced === false && kurgan.state.phase === 'idle' && false));
+  // маркер Любомира: показываем, если 0 или если 1 и надо вернуться
+  lyubomir.marker.visible = (quest.stage === 0) || (quest.stage === 1 && kurgan.state.returnedFromVeda === false && false);
+  // упростим:
+  lyubomir.marker.visible = (quest.stage === 0);
+  if (quest.stage === 1) {
+    // если только что говорили с Ведой — маркер над Любомиром тоже нужен
+    lyubomir.marker.visible = true;
+    veda.marker.visible = false;
+  } else {
+    veda.marker.visible = (quest.stage === 1 && false);
+  }
+
+  if (quest.stage === 0) {
+    questBeacon.visible = true;
+    questBeacon.position.set(lyubomir.x, 3.0, lyubomir.z);
+  } else if (quest.stage === 1) {
+    questBeacon.visible = true;
+    questBeacon.position.set(lyubomir.x, 3.0, lyubomir.z); // ведём к Любомиру
+    if (vedaConvinced === null) {
+      // ещё не говорили с Ведой — ведём к Веде
+      questBeacon.position.set(veda.x, 3.0, veda.z);
+    }
+  } else if (quest.stage === 2) {
+    questBeacon.visible = true;
+    questBeacon.position.set(KURGAN_POS.x, 3.6, KURGAN_POS.z);
+  } else {
+    questBeacon.visible = false;
+  }
+}
+
+/* =========================================================
+   ИНТЕРАКТИВНЫЕ ОБЪЕКТЫ
+   ========================================================= */
+function registerInteractable(obj) {
+  interactables.push(obj);
+  return obj;
+}
+
+const itLyubomir = registerInteractable({
+  x: lyubomir.x, z: lyubomir.z, radius: 2.6,
+  label: 'Поговорить', enabled: true, action: talkLyubomir
+});
+const itVeda = registerInteractable({
+  x: veda.x, z: veda.z, radius: 2.6,
+  label: 'Поговорить', enabled: true, action: talkVeda
+});
+const itHidingSpot = registerInteractable({
+  x: HIDING_TREE_POS.x, z: HIDING_TREE_POS.z, radius: 3.0,
+  label: 'Спрятаться за деревом', enabled: false,
+  action: () => { if (kurgan.state.phase === 'idle') startHiding(); }
+});
+
+/* --- собираемые травы --- */
+function makeHerb(x, z, name) {
+  const g = new THREE.Group();
+  g.position.set(x, 0, z);
+  for (let i = 0; i < 3; i++) {
+    const blade = new THREE.Mesh(
+      new THREE.ConeGeometry(0.10, rnd(0.7, 1.05), 4),
+      new THREE.MeshLambertMaterial({ color: i % 2 ? 0x7FA84A : 0x5E8A34 })
+    );
+    blade.position.set(rnd(-0.25, 0.25), 0.4, rnd(-0.25, 0.25));
+    blade.rotation.z = rnd(-0.3, 0.3);
+    blade.castShadow = true;
+    g.add(blade);
+  }
+  const flower = new THREE.Mesh(
+    new THREE.SphereGeometry(0.13, 6, 5),
+    new THREE.MeshLambertMaterial({ color: 0xD9A441, emissive: 0x3a2a04 })
+  );
+  flower.position.set(0, 0.95, 0);
+  g.add(flower);
+  scene.add(g);
+  const it = registerInteractable({
+    x, z, radius: 2.0, label: 'Собрать травы', enabled: true,
+    action: () => { it.enabled = false; g.visible = false; addItem(name); }
+  });
+}
+makeHerb(-27, 4, 'Травы-обереги');
+makeHerb(17, 16, 'Полынь');
+makeHerb(-2, -14, 'Корень мандрагоры');
+
+/* --- оберег у капища --- */
+(function () {
+  const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.34, 0), M.gold);
+  m.position.set(-16, 1.1, -16); m.castShadow = true;
+  scene.add(m);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 0.9, 6), M.stone);
+  base.position.set(-16, 0.45, -16); base.castShadow = true;
+  scene.add(base);
+  const it = registerInteractable({
+    x: -16, z: -16, radius: 2.2, label: 'Взять оберег', enabled: true,
+    action: () => { it.enabled = false; m.visible = false; base.visible = false; addItem('Оберег Мораны'); }
+  });
+})();
+
+/* =========================================================
+   СЦЕНА НА КУРГАНАХ — МАШИНА СОСТОЯНИЙ
+   ========================================================= */
+const kurgan = {
+  state: {
+    phase: 'idle', // idle | hidden | waiting | thief_in | thief_taking | thief_out | choice | resolved
+    timer: 0,
+    thiefProgress: 0,
+    returnedFromVeda: false,
+    choiceActive: false,
+    cinematic: false,
+    cinematicBlend: 0
+  }
+};
+
+function startHiding() {
+  if (kurgan.state.phase !== 'idle') return;
+  const s = kurgan.state;
+  s.phase = 'waiting';
+  s.timer = 3.0; // 3 секунды ожидания до появления вора
+  player.frozen = true;
+  player.pos.copy(HIDING_PLAYER_POS);
+  // повернуть игрока к кургану
+  const dx = KURGAN_POS.x - player.pos.x;
+  const dz = KURGAN_POS.z - player.pos.z;
+  player.yaw = Math.atan2(dx, dz);
+  camYaw = player.yaw + Math.PI;
+  camPitch = 0.22;
+  camDist = 6.0;
+  // кинематографичные полосы
+  elCineBars.classList.add('show');
+  s.cinematic = true;
+  // скрыть маркер укрытия
+  hidingMarker.visible = false;
+  hidingTreeGlow.visible = false;
+  itHidingSpot.enabled = false;
+  toast('Вы спрятались за деревом и ждёте...', 3000);
+  Sound.sfx('heartbeat');
+}
+
+function startThiefWalkIn() {
+  const s = kurgan.state;
+  s.phase = 'thief_in';
+  s.thiefProgress = 0;
+  thief.pos.copy(THIEF_START);
+  thief.fig.group.position.copy(THIEF_START);
+  thief.fig.group.rotation.y = Math.PI; // лицом на юг
+  thief.fig.group.visible = true;
+  thief.marker.visible = true;
+  thief.marker.position.set(THIEF_START.x, 2.85, THIEF_START.z);
+  toast('В темноте кто-то показался...', 2600);
+  Sound.sfx('step');
+}
+
+function startThiefTaking() {
+  const s = kurgan.state;
+  s.phase = 'thief_taking';
+  s.timer = 1.6;
+  // вор «присаживается» — наклоняем корпус
+  thief.fig.group.rotation.x = 0.35;
+  toast('Вор забирает подношения!', 2400);
+  Sound.sfx('danger');
+}
+
+function takeOfferingsVisual() {
+  // подношения исчезают
+  kurganOfferings.forEach(o => {
+    o.visible = false;
+  });
+  // мешок становится больше (полный)
+  const sack = thief.fig.group.userData.sack;
+  if (sack) {
+    sack.scale.set(1.15, 1.15, 0.85);
+    sack.material = new THREE.MeshLambertMaterial({ color: 0x6b4d2e });
+  }
+}
+
+function startThiefWalkOut() {
+  const s = kurgan.state;
+  s.phase = 'thief_out';
+  s.thiefProgress = 0;
+  thief.fig.group.rotation.x = 0;
+  thief.fig.group.rotation.y = 0; // лицом на север
+  thief.marker.visible = false;
+  // запускаем таймерный выбор
+  openKurganChoice();
+}
+
+function openKurganChoice() {
+  const s = kurgan.state;
+  s.phase = 'choice';
+  s.choiceActive = true;
+  Sound.sfx('open');
+
+  showTimedChoice(
+    'Ярослав',
+    'Вор забрал подношения и уходит в туман. Что делать?',
+    [
+      {
+        label: 'Напасть на вора! (бой)',
+        action: () => { onKurganChoiceAttack(); }
+      },
+      {
+        label: 'Проследить за вором',
+        action: () => { onKurganChoiceFollow(); }
+      },
+      {
+        label: 'Дать уйти',
+        action: () => { onKurganChoiceEscape(); }
+      }
+    ],
+    10,
+    () => { onKurganChoiceEscape(); }
+  );
+}
+
+function onKurganChoiceAttack() {
+  stopTimedChoice();
+  closeDialogue();
+  kurgan.state.phase = 'combat';
+  kurgan.state.cinematic = false;
+  elCineBars.classList.remove('show');
+  // ставим игрока рядом с вором
+  player.frozen = false;
+  player.pos.set(thief.pos.x + 2.2, 0, thief.pos.z + 1.8);
+  player.yaw = Math.atan2(thief.pos.x - player.pos.x, thief.pos.z - player.pos.z);
+  startCombat();
+}
+
+function onKurganChoiceFollow() {
+  stopTimedChoice();
+  closeDialogue();
+  const s = kurgan.state;
+  s.phase = 'resolved';
+  thiefResolved = true;
+  elCineBars.classList.remove('show');
+  s.cinematic = false;
+
+  // короткая заставка-слежка
+  toast('Вы последовали за вором в темноту...', 2600);
+  Sound.sfx('step');
+
+  setTimeout(() => {
+    // вор уходит
+    thief.fig.group.visible = false;
+    thiefResolved = true;
+    addItem('Хазарская монета');
+    addJournal('Вы проследили за вором и нашли хазарскую монету — доказательство.');
+    toast('На тропе блеснула монета...', 3000);
+    Sound.sfx('pickup');
+    setTimeout(() => {
+      showEnding('Исход: правда', 'Вы последовали за вором',
+        'Вы осторожно последовали за вором. Он ушёл в сторону хазарского стана — туда, откуда приходят сборщики дани. На тропе вы нашли оброненную хазарскую монету. Теперь у Веды есть доказательство. Но подношения ушли, и духи не получили своего — деревня ещё долго будет расплачиваться за это.');
+    }, 1400);
+  }, 2200);
+}
+
+function onKurganChoiceEscape() {
+  stopTimedChoice();
+  closeDialogue();
+  const s = kurgan.state;
+  s.phase = 'resolved';
+  thiefResolved = true;
+  elCineBars.classList.remove('show');
+  s.cinematic = false;
+
+  toast('Вор растворился в тумане...', 2600);
+  Sound.sfx('danger');
+  setTimeout(() => {
+    thief.fig.group.visible = false;
+    showEnding('Исход: бездействие', 'Вор ушёл',
+      'Вы не решились ни напасть, ни проследить. Вор скрылся в тумане вместе с подношениями. Духи разгневаны — и деревня ещё долго будет расплачиваться за вашу нерешительность. Веда узнает, что вы не справились.');
+  }, 1600);
+}
+
+/* Обновление сцены на курганах */
+function updateKurganScene(dt) {
+  const s = kurgan.state;
+
+  // активация маркера укрытия
+  if (quest.stage === 2 && s.phase === 'idle') {
+    hidingMarker.visible = true;
+    hidingTreeGlow.visible = true;
+    itHidingSpot.enabled = true;
+    if (hidingMarker) {
+      hidingMarker.position.y = 7.6 + Math.sin(performance.now() * 0.002) * 0.18;
+      hidingMarker.rotation.y += dt * 1.2;
+    }
+    hidingTreeGlow.material.opacity = 0.4 + Math.sin(performance.now() * 0.0028) * 0.2;
+  } else {
+    hidingMarker.visible = false;
+    hidingTreeGlow.visible = false;
+  }
+
+  // фазы
+  if (s.phase === 'waiting') {
+    s.timer -= dt;
+    if (s.timer <= 0) {
+      startThiefWalkIn();
+    }
+  } else if (s.phase === 'thief_in') {
+    s.thiefProgress += dt / 3.0;
+    const t = clamp(s.thiefProgress, 0, 1);
+    thief.pos.lerpVectors(THIEF_START, THIEF_KURGAN, t);
+    thief.fig.group.position.copy(thief.pos);
+    // шаг
+    thief.walkPhase += dt * 9;
+    thief.fig.legL.rotation.x = Math.sin(thief.walkPhase) * 0.55;
+    thief.fig.legR.rotation.x = -Math.sin(thief.walkPhase) * 0.55;
+    thief.fig.armL.rotation.x = -Math.sin(thief.walkPhase) * 0.45;
+    thief.fig.armR.rotation.x = Math.sin(thief.walkPhase) * 0.45;
+    thief.fig.group.position.y = Math.abs(Math.sin(thief.walkPhase)) * 0.05;
+    // маркер следует за вором
+    thief.marker.position.set(thief.pos.x, 2.85 + Math.sin(performance.now() * 0.004) * 0.12, thief.pos.z);
+
+    if (t >= 1) {
+      startThiefTaking();
+    }
+  } else if (s.phase === 'thief_taking') {
+    s.timer -= dt;
+    // небольшое покачивание «забирает»
+    thief.fig.group.rotation.z = Math.sin(performance.now() * 0.008) * 0.08;
+    if (s.timer <= 0) {
+      takeOfferingsVisual();
+      setTimeout(() => {
+        if (s.phase === 'thief_taking') {
+          startThiefWalkOut();
+        }
+      }, 350);
+      s.phase = 'thief_leaving_pause';
+      s.timer = 0.4;
+    }
+  } else if (s.phase === 'thief_leaving_pause') {
+    s.timer -= dt;
+    if (s.timer <= 0) {
+      startThiefWalkOut();
+    }
+  } else if (s.phase === 'thief_out') {
+    // вор уходит, пока идёт таймерный выбор
+    s.thiefProgress += dt / 3.5;
+    const t = clamp(s.thiefProgress, 0, 1);
+    thief.pos.lerpVectors(THIEF_KURGAN, THIEF_END, t);
+    thief.fig.group.position.copy(thief.pos);
+    thief.walkPhase += dt * 9;
+    thief.fig.legL.rotation.x = Math.sin(thief.walkPhase) * 0.55;
+    thief.fig.legR.rotation.x = -Math.sin(thief.walkPhase) * 0.55;
+    thief.fig.armL.rotation.x = -Math.sin(thief.walkPhase) * 0.45;
+    thief.fig.armR.rotation.x = Math.sin(thief.walkPhase) * 0.45;
+    thief.fig.group.position.y = Math.abs(Math.sin(thief.walkPhase)) * 0.05;
+    if (t >= 1) {
+      // вор дошёл до края — исчезает
+      thief.fig.group.visible = false;
+      // если игрок ещё не выбрал — ничего, ждём таймер
+    }
+  }
+}
+
+/* =========================================================
+   КОНЦОВКИ
+   ========================================================= */
+function triggerPeaceEndingConvinced() {
+  quest.stage = 4;
+  updateQuestUI();
+  addJournal('Веда согласилась подождать. Любомир доволен.');
+  showEnding('Исход: мир', 'Вы выбрали мир',
+    'Вы убедили Веду подождать. Старейшина доволен — войны не будет, деревня устоит. Но дань всё ещё кто-то забирает, и духи не получат своего. Время покажет, было ли это решение мудрым — или просто отсрочкой.');
+}
+
+function triggerLieEnding() {
+  quest.stage = 4;
+  updateQuestUI();
+  addJournal('Вы солгали Любомиру. Веда не станет ждать.');
+  showEnding('Исход: ложь', 'Вы солгали старейшине',
+    'Вы сказали Любомиру, что Веда согласилась ждать. Это была ложь. Жрица не станет ждать — она пойдёт к наместнику сама. Старейшина узнает правду слишком поздно. Деревня окажется втянута в конфликт, к которому никто не готов.');
+}
+
+function showEnding(title, subtitle, text) {
+  gameState = 'ending';
+  elEndingTitle.textContent = title;
+  elEndingSub.textContent = subtitle;
+  elEndingText.textContent = text;
+  elEnding.classList.add('show');
+  elDialogue.classList.remove('show');
+  elHint.classList.remove('show');
+  Sound.sfx('quest');
+}
+
+/* =========================================================
+   БОЙ
+   ========================================================= */
+let combatClicks = 0;
+let combatTime = 10;
+let combatActive = false;
+let combatShake = 0;
+
+function startCombat() {
+  gameState = 'combat';
+  combatActive = true;
+  combatClicks = 0;
+  combatTime = 10;
+  elCombatFill.style.width = '0%';
+  elCombatTimer.textContent = '10.0';
+  elCombat.classList.add('show');
+  elDialogue.classList.remove('show');
+  elHint.classList.remove('show');
+  Sound.sfx('danger');
+}
+
+function combatClick() {
+  if (!combatActive) return;
+  combatClicks++;
+  Sound.sfx('hit');
+  elCombatFill.style.width = Math.min(100, (combatClicks / 3) * 100) + '%';
+  combatShake = 0.22;
+
+  if (combatClicks >= 3) {
+    combatActive = false;
+    elCombat.classList.remove('show');
+    thiefResolved = true;
+    thief.fig.group.visible = false;
+    quest.stage = 4;
+    updateQuestUI();
+    addJournal('Вор повержен и признался: дань забирали по приказу наместника.');
+    setTimeout(() => {
+      showEnding('Исход: сила', 'Вы напали на вора и победили',
+        'Вы напали на вора и победили! Он признался, что забирал дань по приказу наместника. Подношения остались на кургане — духи успокоились. Но наместник теперь знает, что деревня не так беззащитна, как казалось. Любомир недоволен: войны, возможно, не избежать. Веда довольна.');
+    }, 500);
+  }
+}
+
+elCombat.addEventListener('mousedown', e => {
+  e.preventDefault();
+  combatClick();
+});
+
+elEndingBtn.addEventListener('click', () => {
+  Sound.sfx('click');
+  elEnding.classList.remove('show');
+  elFinal.classList.add('show');
+  gameState = 'final';
+});
+
+$('btnRestart').addEventListener('click', () => {
+  Sound.sfx('click');
+  location.reload();
+});
+
+/* =========================================================
+   АТМОСФЕРА
+   ========================================================= */
+let darkFactor = 0;
+function updateAtmosphere(dt) {
+  const t = smoothstep(-28, -46, player.pos.z);
+  darkFactor = lerp(darkFactor, t, 1 - Math.pow(0.05, dt));
+
+  scene.background.copy(SKY_DAY).lerp(SKY_NIGHT, darkFactor);
+  scene.fog.color.copy(SKY_DAY).lerp(SKY_NIGHT, darkFactor);
+  scene.fog.near = lerp(48, 16, darkFactor);
+  scene.fog.far  = lerp(165, 95, darkFactor);
+
+  ambient.intensity = lerp(0.55, 0.18, darkFactor);
+  hemi.intensity    = lerp(0.40, 0.14, darkFactor);
+  sun.intensity     = lerp(0.95, 0.20, darkFactor);
+
+  Sound.setDark(darkFactor);
+
+  if (motes) {
+    motes.material.opacity = lerp(0.55, 0.95, darkFactor);
+    motes.material.size = lerp(0.30, 0.48, darkFactor);
+  }
+}
+
+/* =========================================================
+   КАМЕРА
+   ========================================================= */
+function updateCamera(dt) {
+  const s = kurgan.state;
+
+  // Во время «прятки» — кинематографичный вид на курган
+  if (s.cinematic) {
+    const camX = HIDING_PLAYER_POS.x + 3.0;
+    const camY = 4.2;
+    const camZ = HIDING_PLAYER_POS.z + 4.0;
+    const k = 1 - Math.pow(0.0008, dt);
+    camera.position.x = lerp(camera.position.x, camX, k);
+    camera.position.y = lerp(camera.position.y, camY, k);
+    camera.position.z = lerp(camera.position.z, camZ, k);
+    const lookX = KURGAN_POS.x;
+    const lookY = 2.2;
+    const lookZ = KURGAN_POS.z;
+    camLookTarget.x = lerp(camLookTarget.x, lookX, k);
+    camLookTarget.y = lerp(camLookTarget.y, lookY, k);
+    camLookTarget.z = lerp(camLookTarget.z, lookZ, k);
+    camera.lookAt(camLookTarget);
+    sun.position.set(player.pos.x + 45, 70, player.pos.z + 30);
+    sun.target.position.set(player.pos.x, 0, player.pos.z);
+    sun.target.updateMatrixWorld();
+    return;
+  }
+
+  const px = player.pos.x;
+  const py = player.pos.y + 1.55;
+  const pz = player.pos.z;
+
+  const cp = Math.cos(camPitch);
+  const ox = Math.sin(camYaw) * cp * camDist;
+  const oz = Math.cos(camYaw) * cp * camDist;
+  const oy = Math.sin(camPitch) * camDist;
+
+  const desiredX = px + ox;
+  const desiredY = py + oy + 0.9;
+  const desiredZ = pz + oz;
+
+  const k = 1 - Math.pow(0.0018, dt);
+  camera.position.x = lerp(camera.position.x, desiredX, k);
+  camera.position.y = lerp(camera.position.y, desiredY, k);
+  camera.position.z = lerp(camera.position.z, desiredZ, k);
+
+  const lk = 1 - Math.pow(0.0006, dt);
+  camLookTarget.x = lerp(camLookTarget.x, px, lk);
+  camLookTarget.y = lerp(camLookTarget.y, py, lk);
+  camLookTarget.z = lerp(camLookTarget.z, pz, lk);
+
+  camera.lookAt(camLookTarget);
+
+  sun.position.set(px + 45, 70, pz + 30);
+  sun.target.position.set(px, 0, pz);
+  sun.target.updateMatrixWorld();
+}
+
+/* =========================================================
+   КОЛЛИЗИИ
+   ========================================================= */
+function collides(x, z, r) {
+  for (let i = 0; i < colliders.length; i++) {
+    const c = colliders[i];
+    if (x + r > c.minX && x - r < c.maxX && z + r > c.minZ && z - r < c.maxZ) return true;
+  }
+  return false;
+}
+
+/* =========================================================
+   ДВИЖЕНИЕ ИГРОКА
+   ========================================================= */
+function updatePlayer(dt) {
+  const fig = player.fig;
+  let moving = false;
+
+  if (gameState === 'play' && !player.frozen) {
+    let ix = 0, iz = 0;
+    if (keys['KeyW'] || keys['ArrowUp'])    iz += 1;
+    if (keys['KeyS'] || keys['ArrowDown'])  iz -= 1;
+    if (keys['KeyD'] || keys['ArrowRight']) ix += 1;
+    if (keys['KeyA'] || keys['ArrowLeft'])  ix -= 1;
+
+    if (ix !== 0 || iz !== 0) {
+      const fx = -Math.sin(camYaw), fz = -Math.cos(camYaw);
+      const rx = -fz, rz = fx;
+      let mx = fx * iz + rx * ix;
+      let mz = fz * iz + rz * ix;
+      const len = Math.hypot(mx, mz) || 1;
+      mx /= len; mz /= len;
+
+      const running = keys['ShiftLeft'] || keys['ShiftRight'];
+      const spd = (running ? player.runSpeed : player.speed) * dt;
+
+      const nx = player.pos.x + mx * spd;
+      if (!collides(nx, player.pos.z, player.radius)) player.pos.x = nx;
+      const nz = player.pos.z + mz * spd;
+      if (!collides(player.pos.x, nz, player.radius)) player.pos.z = nz;
+
+      player.pos.x = clamp(player.pos.x, -70, 70);
+      player.pos.z = clamp(player.pos.z, -95, 44);
+
+      const targetYaw = Math.atan2(mx, mz);
+      player.yaw = lerpAngle(player.yaw, targetYaw, 1 - Math.pow(0.000002, dt));
+      moving = true;
+
+      player.stepTimer -= dt;
+      if (player.stepTimer <= 0) {
+        player.stepTimer = running ? 0.28 : 0.42;
+        Sound.sfx('step');
+      }
+    }
+  }
+
+  if (gameState === 'play' && !player.frozen && keys['Space'] && player.pos.y <= 0.001) {
+    player.vy = 6.5;
+    Sound.sfx('step');
+  }
+  player.vy -= 22 * dt;
+  player.pos.y += player.vy * dt;
+  if (player.pos.y <= 0) { player.pos.y = 0; player.vy = 0; }
+
+  if (moving) {
+    player.walkPhase += dt * (keys['ShiftLeft'] || keys['ShiftRight'] ? 15 : 10);
+    const s = Math.sin(player.walkPhase) * 0.62;
+    fig.legL.rotation.x = s;
+    fig.legR.rotation.x = -s;
+    fig.armL.rotation.x = -s * 0.65;
+    fig.armR.rotation.x = s * 0.65;
+    fig.group.position.y = player.pos.y + Math.abs(Math.sin(player.walkPhase)) * 0.055;
+  } else {
+    player.walkPhase += dt * 2.2;
+    fig.legL.rotation.x = lerp(fig.legL.rotation.x, 0, 0.15);
+    fig.legR.rotation.x = lerp(fig.legR.rotation.x, 0, 0.15);
+    fig.armL.rotation.x = lerp(fig.armL.rotation.x, Math.sin(player.walkPhase) * 0.06, 0.1);
+    fig.armR.rotation.x = lerp(fig.armR.rotation.x, -Math.sin(player.walkPhase) * 0.06, 0.1);
+    fig.group.position.y = player.pos.y;
+  }
+
+  fig.group.position.x = player.pos.x;
+  fig.group.position.z = player.pos.z;
+  fig.group.rotation.y = player.yaw;
+}
+
+/* =========================================================
+   ВЗАИМОДЕЙСТВИЕ
+   ========================================================= */
+function findInteractable() {
+  let best = null, bestD = Infinity;
+  for (let i = 0; i < interactables.length; i++) {
+    const it = interactables[i];
+    if (!it.enabled) continue;
+    const dx = player.pos.x - it.x;
+    const dz = player.pos.z - it.z;
+    const d = Math.sqrt(dx * dx + dz * dz);
+    if (d < it.radius && d < bestD) { bestD = d; best = it; }
+  }
+  return best;
+}
+
+function updateInteractionUI() {
+  if (gameState !== 'play' || player.frozen) {
+    elHint.classList.remove('show');
+    return;
+  }
+  const it = findInteractable();
+  if (it) {
+    elHintText.textContent = it.label;
+    elHint.classList.add('show');
+  } else {
+    elHint.classList.remove('show');
+  }
+}
+
+function doInteract() {
+  if (gameState !== 'play' || player.frozen) return;
+  const it = findInteractable();
+  if (it) it.action();
+}
+
+/* =========================================================
+   ЛОКАЦИИ
+   ========================================================= */
+let currentLocation = '';
+function updateLocation() {
+  const px = player.pos.x, pz = player.pos.z;
+  let name;
+  if (pz < -34) name = 'Курганы';
+  else if (Math.hypot(px + 22, pz + 12) < 16) name = 'Капище Мораны';
+  else if (Math.hypot(px, pz - 12) < 26) name = 'Городище';
+  else name = 'Окраина';
+  if (name !== currentLocation) {
+    currentLocation = name;
+    elLocName.textContent = name;
+    if (gameState === 'play') toast('— ' + name + ' —');
+  }
+}
+
+/* =========================================================
+   КОМПАС
+   ========================================================= */
+const DIRS = ['С', 'СВ', 'В', 'ЮВ', 'Ю', 'ЮЗ', 'З', 'СЗ'];
+(function buildCompass() {
+  for (let k = 0; k < 3; k++) {
+    DIRS.forEach(d => {
+      const s = document.createElement('span');
+      s.className = 'cdir';
+      s.textContent = d;
+      elCompass.appendChild(s);
+    });
+  }
+})();
+
+function updateCompass() {
+  const fx = -Math.sin(camYaw);
+  const fz = -Math.cos(camYaw);
+  let deg = Math.atan2(fx, -fz) * 180 / Math.PI;
+  deg = (deg + 360) % 360;
+  const i = deg / 45;
+  const x = 110 - ((i + 0.5) * 44 + 352);
+  elCompass.style.transform = 'translateX(' + x + 'px)';
+}
+
+/* =========================================================
+   ОБНОВЛЕНИЕ NPC / МАРКЕРОВ
+   ========================================================= */
+let npcTime = 0;
+function updateNPCs(dt) {
+  npcTime += dt;
+
+  [lyubomir, veda].forEach(n => {
+    if (n.marker.visible) {
+      n.marker.position.y = 2.85 + Math.sin(npcTime * 3) * 0.14;
+      n.marker.rotation.y += dt * 2.2;
+    }
+  });
+
+  const bob = Math.sin(npcTime * 1.6) * 0.02;
+  lyubomir.fig.group.position.y = bob;
+  veda.fig.group.position.y = -bob;
+
+  if (thief.marker.visible) {
+    thief.marker.position.y = 2.85 + Math.sin(npcTime * 4) * 0.12;
+    thief.marker.rotation.y += dt * 2.6;
+  }
+
+  if (questBeacon.visible) {
+    questBeacon.rotation.y += dt * 1.5;
+    questBeacon.children[1].position.y = 0.6 + Math.sin(npcTime * 2.5) * 0.18;
+    questBeacon.position.y = 3.0 + Math.sin(npcTime * 1.8) * 0.12;
+  }
+}
+
+/* =========================================================
+   ЧАСТИЦЫ — ОБНОВЛЕНИЕ
+   ========================================================= */
+function updateMotes(dt) {
+  if (!motes) return;
+  const pos = motes.geometry.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    let y = pos.getY(i) + dt * 0.35 * (0.4 + (i % 5) * 0.15);
+    if (y > 8) y = 0.3;
+    pos.setY(i, y);
+  }
+  pos.needsUpdate = true;
+}
+
+/* =========================================================
+   ИНИЦИАЛИЗАЦИЯ
+   ========================================================= */
+const INTRO_PAGES = [
+  'Славянская община платит дань Хазарскому каганату и отдельно — «дань мёртвым»: подношения на курганах, чтобы духи не гневались. Но подношения кто-то забирает: люди наместника, под видом нечисти.',
+  'Духи обижены — пропадают люди, дохнет скот, рыбаки бредят о мёртвых девицах на озере.',
+  'Старейшина Любомир знает правду, но боится войны и требует молчать. Жрица Мораны Веда хочет дойти до наместника и требует доказательств. Ты — Ярослав, бывший дружинник. Тебе решать: мир любой ценой или правда через кровь.'
+];
+const INTRO_TITLES = ['Свиток I', 'Свиток II', 'Свиток III'];
+let introIndex = 0;
+
+$('btnPlay').addEventListener('click', () => {
+  Sound.init();
+  Sound.sfx('click');
+  elMenu.classList.remove('show');
+  introIndex = 0;
+  showIntroPage();
+  elIntro.classList.add('show');
+  gameState = 'intro';
+});
+
+function showIntroPage() {
+  elIntroNum.textContent = INTRO_TITLES[introIndex];
+  elIntroText.textContent = INTRO_PAGES[introIndex];
+  elIntroBtn.textContent = (introIndex === INTRO_PAGES.length - 1) ? 'Начать' : 'Далее';
+}
+
+elIntroBtn.addEventListener('click', () => {
+  Sound.sfx('click');
+  introIndex++;
+  if (introIndex < INTRO_PAGES.length) {
+    showIntroPage();
+  } else {
+    elIntro.classList.remove('show');
+    startGame();
+  }
+});
+
+function startGame() {
+  gameState = 'play';
+  player.pos.set(0, 0, 16);
+  player.yaw = Math.PI;
+  player.frozen = false;
+  camYaw = 0;
+  camPitch = 0.34;
+  camDist = 9;
+  camera.position.set(0, 7, 26);
+  camLookTarget.set(0, 1.8, 16);
+
+  updateQuestUI();
+  updateLocation();
+  toast('Подойдите к старейшине Любомиру');
+  setTimeout(() => {
+    if (gameState === 'play') toast('Зажмите мышь и потяните — чтобы осмотреться');
+  }, 4200);
+}
+
+/* =========================================================
+   ПАНЕЛИ
+   ========================================================= */
+$('btnInv').addEventListener('click', () => {
+  Sound.sfx('click');
+  renderInventory();
+  elInvPanel.classList.toggle('show');
+  elQuestPanel.classList.remove('show');
+});
+$('invClose').addEventListener('click', () => elInvPanel.classList.remove('show'));
+
+$('btnQuest').addEventListener('click', () => {
+  Sound.sfx('click');
+  renderJournal();
+  elQuestPanel.classList.toggle('show');
+  elInvPanel.classList.remove('show');
+});
+$('questClose').addEventListener('click', () => elQuestPanel.classList.remove('show'));
+
+/* =========================================================
+   ВВОД
+   ========================================================= */
+window.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'Space') e.preventDefault();
+  if (e.code === 'KeyE' && !e.repeat) {
+    if (gameState === 'play') doInteract();
+  }
+  if (e.code === 'Escape') {
+    elInvPanel.classList.remove('show');
+    elQuestPanel.classList.remove('show');
+  }
+});
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+let dragging = false, lastMX = 0, lastMY = 0;
+canvas.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  dragging = true;
+  lastMX = e.clientX; lastMY = e.clientY;
+});
+window.addEventListener('mouseup', () => { dragging = false; });
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  if (gameState !== 'play') return;
+  if (kurgan.state.cinematic) return;
+  const dx = e.clientX - lastMX;
+  const dy = e.clientY - lastMY;
+  lastMX = e.clientX; lastMY = e.clientY;
+  camYaw -= dx * 0.006;
+  camPitch = clamp(camPitch + dy * 0.004, 0.02, 0.95);
+});
+canvas.addEventListener('wheel', e => {
+  camDist = clamp(camDist + e.deltaY * 0.008, 4.5, 16);
+}, { passive: true });
+
+let touchId = null, touchX = 0, touchY = 0;
+canvas.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) {
+    touchId = e.touches[0].identifier;
+    touchX = e.touches[0].clientX;
+    touchY = e.touches[0].clientY;
+  }
+}, { passive: true });
+canvas.addEventListener('touchmove', e => {
+  if (kurgan.state.cinematic) return;
+  for (let i = 0; i < e.touches.length; i++) {
+    const t = e.touches[i];
+    if (t.identifier === touchId) {
+      const dx = t.clientX - touchX;
+      const dy = t.clientY - touchY;
+      touchX = t.clientX; touchY = t.clientY;
+      camYaw -= dx * 0.008;
+      camPitch = clamp(camPitch + dy * 0.005, 0.02, 0.95);
+      break;
+    }
+  }
+}, { passive: true });
+canvas.addEventListener('touchend', () => { touchId = null; }, { passive: true });
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+});
+
+/* =========================================================
+   ГЛАВНЫЙ ЦИКЛ
+   ========================================================= */
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  updatePlayer(dt);
+  updateCamera(dt);
+  updateNPCs(dt);
+  updateMotes(dt);
+  updateAtmosphere(dt);
+  updateLocation();
+  updateCompass();
+  updateInteractionUI();
+  updateKurganScene(dt);
+
+  if (combatActive) {
+    combatTime -= dt;
+    elCombatTimer.textContent = Math.max(0, combatTime).toFixed(1);
+    if (combatTime <= 0) {
+      combatTime = 10;
+      combatClicks = 0;
+      elCombatFill.style.width = '0%';
+      elCombatTimer.textContent = '10.0';
+      toast('Вор вырывается! Ещё раз!');
+      Sound.sfx('danger');
+    }
+  }
+
+  if (combatShake > 0) {
+    combatShake = Math.max(0, combatShake - dt * 1.6);
+    const s = combatShake * 0.5;
+    camera.position.x += (Math.random() - 0.5) * s;
+    camera.position.y += (Math.random() - 0.5) * s;
+  }
+
+  if (fireLight) {
+    fireLight.intensity = 1.35 + Math.sin(performance.now() * 0.011) * 0.28 + Math.random() * 0.12;
+  }
+
+  renderer.render(scene, camera);
+}
+
+/* =========================================================
+   СТАРТ
+   ========================================================= */
+updateQuestUI();
+updateLocation();
+renderInventory();
+renderJournal();
+animate();
+
+})();
+</script>
+</body>
+</html>
